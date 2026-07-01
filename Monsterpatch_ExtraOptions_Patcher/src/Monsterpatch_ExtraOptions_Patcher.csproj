@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>Monsterpatch_ExtraOptions_Patcher</AssemblyName>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <RootNamespace>Goose.Monsterpatch.ExtraOptions</RootNamespace>
+    <Version>0.1.2</Version>
+    <AssemblyVersion>0.1.2.0</AssemblyVersion>
+    <FileVersion>0.1.2.0</FileVersion>
+    <InformationalVersion>v0.1.2</InformationalVersion>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <LibDir Condition="Exists('..\..\lib')">..\..\lib</LibDir>
+    <LibDir Condition="'$(LibDir)' == '' and Exists('..\..\..\lib')">..\..\..\lib</LibDir>
+    <LibDir Condition="'$(LibDir)' == '' and Exists('..\..\..\..\lib')">..\..\..\..\lib</LibDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="Mono.Cecil" Condition="Exists('$(LibDir)\Mono.Cecil.dll')">
+      <HintPath>$(LibDir)\Mono.Cecil.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+</Project>
