@@ -3,7 +3,7 @@ setlocal EnableExtensions DisableDelayedExpansion
 cd /d "%~dp0" || exit /b 1
 title Monsterpatch Extra Options Builder
 set "PROJECT=%CD%\Monsterpatch_ExtraOptions_Patcher\src\Monsterpatch_ExtraOptions_Patcher.csproj"
-set "OUTPUT=%CD%\release"
+set "OUTPUT=%CD%\release\BepInEx\patchers"
 set "DLL=Monsterpatch_ExtraOptions_Patcher.dll"
 set "LOG=%CD%\build.log"
 set "STAGE=%TEMP%\ExtraOptions-build-%RANDOM%-%RANDOM%"
@@ -41,11 +41,15 @@ if not exist "%OUTPUT%" mkdir "%OUTPUT%"
 if not exist "%OUTPUT%" goto failed
 copy /y "%STAGE%\%DLL%" "%OUTPUT%\%DLL%" >nul
 if errorlevel 1 goto failed
+if exist "%CD%\release\%DLL%" (
+    del /q "%CD%\release\%DLL%"
+    if exist "%CD%\release\%DLL%" echo [WARNING] Old flat release DLL could not be removed.
+)
 set "RC=0"
 echo.
 echo [SUCCESS] Build complete:
 echo "%OUTPUT%\%DLL%"
-echo Copy this DLL into the game's BepInEx\patchers folder.
+echo Copy the BepInEx folder from release into the game's root folder.
 goto finish
 
 :failed

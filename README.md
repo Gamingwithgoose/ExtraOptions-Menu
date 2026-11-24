@@ -221,10 +221,10 @@ Install the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0), pull
 The finished DLL is written to:
 
 ```text
-release\Monsterpatch_ExtraOptions_Patcher.dll
+release\BepInEx\patchers\Monsterpatch_ExtraOptions_Patcher.dll
 ```
 
-Copy only that DLL to the game's `BepInEx\patchers` folder. Build details are saved to `build.log`. For non-interactive builds, run `build.bat --no-pause`.
+Copy the `BepInEx` folder from `release` into the game's root folder, merging folders and replacing the existing mod DLL if prompted. The builder does not package BepInEx itself or overwrite existing game configuration. A successful build removes the obsolete flat release DLL from earlier builder versions. Build details are saved to `build.log`. For non-interactive builds, run `build.bat --no-pause`.
 
 ## Troubleshooting
 
