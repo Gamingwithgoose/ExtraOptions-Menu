@@ -216,25 +216,15 @@ DebugLogging = true
 
 ## Building from source
 
-Build the project:
+Install the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0), pull the repository, and double-click `build.bat` in the repository root. The builder targets .NET Framework 4.7.2, uses a local Mono.Cecil.dll when available, and otherwise restores Mono.Cecil 0.11.5 and the framework reference assemblies from NuGet. Internet access may be required for the first restore.
+
+The finished DLL is written to:
 
 ```text
-Monsterpatch_ExtraOptions_Patcher\src\Monsterpatch_ExtraOptions_Patcher.csproj
+release\Monsterpatch_ExtraOptions_Patcher.dll
 ```
 
-The project targets `net472` and expects `Mono.Cecil.dll` to be available through the local `lib` folder used by the other Monsterpatch patcher projects.
-
-Expected output:
-
-```text
-Monsterpatch_ExtraOptions_Patcher.dll
-```
-
-Copy the built DLL to:
-
-```text
-BepInEx\patchers\Monsterpatch_ExtraOptions_Patcher.dll
-```
+Copy only that DLL to the game's `BepInEx\patchers` folder. Build details are saved to `build.log`. For non-interactive builds, run `build.bat --no-pause`.
 
 ## Troubleshooting
 
