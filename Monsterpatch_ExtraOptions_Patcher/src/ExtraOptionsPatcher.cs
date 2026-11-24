@@ -9,18 +9,17 @@ namespace Goose.Monsterpatch.ExtraOptions
     public static class ExtraOptionsPatcher
     {
         private const string PatcherName = "Monsterpatch Extra Options";
-        private const string PatcherVersion = "v0.1.2";
+        private const string PatcherVersion = "v0.1.3";
 
         public static IEnumerable<string> TargetDLLs => new[] { "Assembly-CSharp.dll" };
 
         public static void Initialize()
         {
             ExtraOptionsConfig.EnsureDefaultConfig();
-            Goose.Monsterpatch.CatchToBoxPatcher.CatchToBoxPatcher.InitializeFeature();
             Goose.Monsterpatch.ExpRatesPatcher.ExpRatesPatcher.InitializeFeature();
             Goose.Monsterpatch.ShinyOddsPatcher.ShinyOddsPatcher.InitializeFeature();
             Goose.Monsterpatch.OptionsMenuLayoutPatcher.OptionsMenuLayoutPatcher.InitializeFeature();
-            Log($"{PatcherName} {PatcherVersion} loaded. One patcher controls Catch To Box, EXP Rate, Shiny Odds, and latest Options layout.");
+            Log($"{PatcherName} {PatcherVersion} loaded. One patcher controls EXP Rate, Shiny Odds, and latest Options layout.");
         }
 
         public static void Patch(AssemblyDefinition assembly)
@@ -31,7 +30,6 @@ namespace Goose.Monsterpatch.ExtraOptions
                 return;
             }
 
-            Goose.Monsterpatch.CatchToBoxPatcher.CatchToBoxPatcher.PatchFeature(assembly);
             Goose.Monsterpatch.ExpRatesPatcher.ExpRatesPatcher.PatchFeature(assembly);
             Goose.Monsterpatch.ShinyOddsPatcher.ShinyOddsPatcher.PatchFeature(assembly);
             Goose.Monsterpatch.OptionsMenuLayoutPatcher.OptionsMenuLayoutPatcher.PatchFeature(assembly);
@@ -71,30 +69,22 @@ namespace Goose.Monsterpatch.ExtraOptions
         {
             File.WriteAllText(path, @"## Monsterpatch Extra Options
 ## Plugin GUID: goose.monsterpatch.extraoptions
-## This single preloader patcher replaces the separate Catch To Box, Shiny Odds, EXP Rates, and Options Layout patchers.
+## This single preloader patcher replaces the separate Shiny Odds, EXP Rates, and Options Layout patchers.
 ## Put Monsterpatch_ExtraOptions_Patcher.dll in BepInEx\patchers.
 
 [General]
 
-## Enables the custom Options menu rows for Catch To, Shiny Odds, and EXP Rate.
+## Enables the custom Options menu rows for Shiny Odds and EXP Rate.
 # Setting type: Boolean
 # Default value: true
 PatchOptionsMenu = true
 
-[Catch To Box]
-
-## Newly captured / hatched mons are always moved to the Box when possible. There is no Options menu toggle.
-## If true, the mon only moves to the box when box space is available.
-# Setting type: Boolean
-# Default value: true
-OnlyMoveWhenBoxHasSpace = true
-
 [Shiny Odds]
 
-## Shiny odds denominator. Valid values: 1000, 500, 250, 100, 50, 25
+## Shiny odds denominator. Valid values: 200, 150, 100, 50, 25
 # Setting type: Int32
-# Default value: 1000
-OddsDenominator = 1000
+# Default value: 200
+OddsDenominator = 200
 
 [EXP Rate]
 
@@ -102,21 +92,6 @@ OddsDenominator = 1000
 # Setting type: Single
 # Default value: 1
 GlobalExpMultiplier = 1
-
-## Internal Monsterpatch base EXP scale. Usually leave at 0.3.
-# Setting type: Single
-# Default value: 0.3
-BaseExpScale = 0.3
-
-## Wild battle EXP multiplier before the global multiplier. Usually leave at 1.
-# Setting type: Single
-# Default value: 1
-WildBattleMultiplier = 1
-
-## Wizard/trainer battle EXP multiplier before the global multiplier. Usually leave at 1.35.
-# Setting type: Single
-# Default value: 1.35
-WizardBattleMultiplier = 1.35
 
 [Options Menu Layout]
 

@@ -10,16 +10,16 @@ namespace Goose.Monsterpatch.ShinyOddsPatcher
     public static class ShinyOddsPatcher
     {
         public const string PatcherName = "Monsterpatch Extra Options - Shiny Odds";
-        public const string PatcherVersion = "v0.1.2";
+        public const string PatcherVersion = "v0.1.3";
 
-        private const int VanillaOddsDenominator = 1000;
+        private const int VanillaOddsDenominator = 200;
         private const int MinOddsDenominator = 1;
-        private const int MaxOddsDenominator = 1000000;
+        private const int MaxOddsDenominator = 200000;
 
         private const string PlayerPrefsOddsKey = "GooseExtraOptionsShinyOddsDenominator";
         private const string PlayerPrefsIndexKey = "GooseExtraOptionsShinyOddsIndex";
 
-        private static readonly int[] MenuOddsChoices = new[] { 1000, 500, 250, 100, 50, 25 };
+        private static readonly int[] MenuOddsChoices = new[] { 200, 150, 100, 50, 25 };
 
         private static int _oddsDenominator = VanillaOddsDenominator;
         private static int _oddsIndex = 0;
@@ -61,7 +61,7 @@ namespace Goose.Monsterpatch.ShinyOddsPatcher
 
             if (shinyFormulaReplacements == 0)
             {
-                Console.WriteLine($"[{PatcherName}] WARNING: No shiny odds formula constants were patched. Expected 1000 near UnityEngine.Random.Range in GameScript.SetUniqueIDAndInitializeMon.");
+                Console.WriteLine($"[{PatcherName}] WARNING: No shiny odds formula constants were patched. Expected beta GameScript.SparklyOdds(int).");
             }
             else
             {
@@ -78,47 +78,25 @@ namespace Goose.Monsterpatch.ShinyOddsPatcher
 
         private static int PatchShinyFormula(ModuleDefinition module, TypeDefinition gameScript)
         {
-            if (gameScript == null)
-            {
-                Console.WriteLine($"[{PatcherName}] Could not find GameScript.");
-                return 0;
-            }
+            var method = gameScript?.Methods.FirstOrDefault(m => m.Name == "SparklyOdds" && !m.IsStatic && m.HasBody &&
+                m.Parameters.Count == 1 && m.Parameters[0].ParameterType.FullName == "System.Int32" &&
+                m.ReturnType.FullName == "System.Int32");
+            if (method == null) { Console.WriteLine($"[{PatcherName}] Beta SparklyOdds(int) not found."); return 0; }
+            var runtime = module.ImportReference(typeof(ShinyOddsPatcher).GetMethod(nameof(RuntimeScaleSparklyChance)));
+            var il = method.Body.GetILProcessor();
+            var first = method.Body.Instructions[0];
+            il.InsertBefore(first, Instruction.Create(OpCodes.Ldarg_1));
+            il.InsertBefore(first, Instruction.Create(OpCodes.Call, runtime));
+            il.InsertBefore(first, Instruction.Create(OpCodes.Starg, method.Parameters[0]));
+            return 1;
+        }
 
-            MethodDefinition method = gameScript.Methods.FirstOrDefault(m => m.Name == "SetUniqueIDAndInitializeMon" && m.HasBody);
-            if (method == null)
-            {
-                Console.WriteLine($"[{PatcherName}] Could not find GameScript.SetUniqueIDAndInitializeMon.");
-                return 0;
-            }
-
-            MethodReference playerPrefsGetInt = FindMethodReference(module, "UnityEngine.PlayerPrefs", "GetInt", 2);
-            if (playerPrefsGetInt == null)
-            {
-                Console.WriteLine($"[{PatcherName}] Could not find UnityEngine.PlayerPrefs.GetInt(string,int). Shiny formula not patched.");
-                return 0;
-            }
-
-            int replacements = 0;
-            IList<Instruction> instructions = method.Body.Instructions;
-            ILProcessor il = method.Body.GetILProcessor();
-
-            for (int i = 0; i < instructions.Count; i++)
-            {
-                Instruction ins = instructions[i];
-                if (!LoadsInt(ins, VanillaOddsDenominator))
-                    continue;
-
-                if (!HasRandomRangeAfter(instructions, i, 12))
-                    continue;
-
-                il.InsertBefore(ins, Instruction.Create(OpCodes.Ldstr, PlayerPrefsOddsKey));
-                il.InsertBefore(ins, Instruction.Create(OpCodes.Ldc_I4, _oddsDenominator));
-                ins.OpCode = OpCodes.Call;
-                ins.Operand = module.ImportReference(playerPrefsGetInt);
-                replacements++;
-            }
-
-            return replacements;
+        public static int RuntimeScaleSparklyChance(int chance)
+        {
+            int selected = RuntimeGetCurrentOdds();
+            if (selected == VanillaOddsDenominator) return chance;
+            if (chance <= 0) return chance;
+            return Math.Max(1, (int)Math.Round((double)chance * selected / VanillaOddsDenominator, MidpointRounding.AwayFromZero));
         }
 
         private static int PatchOptionsRefreshUI(ModuleDefinition module, TypeDefinition optionsMenuScript)
@@ -340,10 +318,7 @@ namespace Goose.Monsterpatch.ShinyOddsPatcher
 
         private static void RuntimeChangeOdds(int direction)
         {
-            int currentIndex = PlayerPrefsGetInt(PlayerPrefsIndexKey, _oddsIndex);
-
-            if (currentIndex < 0 || currentIndex >= MenuOddsChoices.Length)
-                currentIndex = FindClosestChoiceIndex(RuntimeGetCurrentOdds());
+            int currentIndex = FindClosestChoiceIndex(RuntimeGetCurrentOdds());
 
             currentIndex += direction > 0 ? 1 : -1;
             if (currentIndex >= MenuOddsChoices.Length)
@@ -802,15 +777,15 @@ namespace Goose.Monsterpatch.ShinyOddsPatcher
                 odds = ClampOdds(odds);
                 File.WriteAllText(path,
 $@"## Monsterpatch Extra Options
-## This single preloader patcher replaces the separate Catch To Box, Shiny Odds, EXP Rates, and Options Layout patchers.
+## This single preloader patcher replaces the separate Shiny Odds, EXP Rates, and Options Layout patchers.
 ## Put Monsterpatch_ExtraOptions_Patcher.dll in BepInEx\patchers.
 ## Restart the game after replacing the patcher DLL.
 
 [Shiny Odds]
 
 ## Denominator for shiny odds.
-## Menu choices are: 1000, 500, 250, 100, 50, 25.
-## 1000 = vanilla 1/1000.
+## Menu choices are: 200, 150, 100, 50, 25.
+## 200 = vanilla 1/200.
 ## 25 = 1/25.
 OddsDenominator = {odds}
 

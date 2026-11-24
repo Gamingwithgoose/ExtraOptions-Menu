@@ -12,19 +12,16 @@ namespace Goose.Monsterpatch.ExpRatesPatcher
     public static class ExpRatesPatcher
     {
         private const string PatcherName = "Monsterpatch Extra Options - EXP Rate";
-        private const string PatcherVersion = "v0.1.2";
+        private const string PatcherVersion = "v0.1.3";
         private const string ConfigFileName = "goose.monsterpatch.extraoptions.cfg";
         private const string RowName = "expRate";
         private static readonly float[] MenuMultiplierChoices = { 1.0f, 1.5f, 2.0f, 2.5f, 3.0f };
-        private static float _baseExpScale = 0.3f;
-        private static float _wildBattleMultiplier = 1.0f;
-        private static float _wizardBattleMultiplier = 1.35f;
         private static float _globalExpMultiplier = 1.0f;
         private static bool _patchOptionsMenu = true;
         private static bool _debugLogging = true;
         private static bool _initialized;
         // TargetDLLs is owned by Monsterpatch_ExtraOptions_Patcher.
-        public static void InitializeFeature() { LoadConfig(); Log($"{PatcherName} {PatcherVersion} loaded. BaseExpScale={_baseExpScale}, WildBattleMultiplier={_wildBattleMultiplier}, WizardBattleMultiplier={_wizardBattleMultiplier}, GlobalExpMultiplier={_globalExpMultiplier} (default/new config 1x), PatchOptionsMenu={_patchOptionsMenu}"); }
+        public static void InitializeFeature() { LoadConfig(); Log($"{PatcherName} {PatcherVersion} loaded. GlobalExpMultiplier={_globalExpMultiplier} (default/new config 1x), PatchOptionsMenu={_patchOptionsMenu}"); }
         public static void PatchFeature(AssemblyDefinition assembly)
         {
             if (assembly == null) { Log("Assembly was null."); return; }
@@ -35,23 +32,26 @@ namespace Goose.Monsterpatch.ExpRatesPatcher
         public static void FinishFeature() { }
         private static int PatchExpFormula(AssemblyDefinition assembly)
         {
-            TypeDefinition gameScript = assembly.MainModule.Types.FirstOrDefault(t=>t.Name=="GameScript");
-            MethodDefinition method = gameScript?.Methods.FirstOrDefault(m=>m.Name=="GetExpGain" && m.HasBody);
-            if (method == null) { Log("GameScript.GetExpGain not found."); return 0; }
-            MethodReference baseScale = ImportRuntimeMethod(assembly.MainModule, nameof(RuntimeGetEffectiveBaseExpScale));
-            MethodReference wild = ImportRuntimeMethod(assembly.MainModule, nameof(RuntimeGetWildBattleMultiplier));
-            MethodReference wizard = ImportRuntimeMethod(assembly.MainModule, nameof(RuntimeGetWizardBattleMultiplier));
-            ILProcessor il = method.Body.GetILProcessor(); int patched=0;
-            foreach (Instruction instr in method.Body.Instructions.ToList())
-            {
-                if (instr.OpCode != OpCodes.Ldc_R4 || !(instr.Operand is float value)) continue;
-                if (Approximately(value,0.3f)) { il.Replace(instr, Instruction.Create(OpCodes.Call, baseScale)); patched++; }
-                else if (Approximately(value,1.0f)) { il.Replace(instr, Instruction.Create(OpCodes.Call, wild)); patched++; }
-                else if (Approximately(value,1.35f)) { il.Replace(instr, Instruction.Create(OpCodes.Call, wizard)); patched++; }
-            }
-            if (patched==0) Log("WARNING: no expected EXP constants were patched.");
-            return patched;
+            var gameScript = assembly.MainModule.Types.FirstOrDefault(t => t.Name == "GameScript");
+            var method = gameScript?.Methods.FirstOrDefault(m => m.Name == "GetExpGain" && m.IsStatic && m.HasBody && m.Parameters.Count == 2 && m.Parameters[0].ParameterType.FullName == "Mon[]" && m.Parameters[1].ParameterType.FullName == "System.Boolean" && m.ReturnType.FullName == "System.Int32");
+            if (method == null) { Log("WARNING: beta GetExpGain signature not found."); return 0; }
+            var targets = method.Body.Instructions.Where(i =>
+                (i.OpCode == OpCodes.Call || i.OpCode == OpCodes.Callvirt) &&
+                i.Operand is MethodReference mr && mr.DeclaringType.FullName == "UnityEngine.Mathf" &&
+                mr.Name == "RoundToInt" && mr.Parameters.Count == 1 &&
+                mr.Parameters[0].ParameterType.FullName == "System.Single").ToList();
+            if (targets.Count != 1) { Log("WARNING: expected exactly one EXP rounding call; found " + targets.Count + ". EXP unchanged."); return 0; }
+            var target = targets[0];
+            var round = (MethodReference)target.Operand;
+            var runtime = ImportRuntimeMethod(assembly.MainModule, nameof(RuntimeApplyExpMultiplier));
+            // Preserve the original instruction as a branch target.
+            var il = method.Body.GetILProcessor();
+            target.OpCode = OpCodes.Call;
+            target.Operand = runtime;
+            il.InsertAfter(target, Instruction.Create(OpCodes.Call, round));
+            return 1;
         }
+        public static float RuntimeApplyExpMultiplier(float exp) => exp * RuntimeGetCurrentGlobalExpMultiplier();
         private static int PatchOptionsRefreshUI(AssemblyDefinition assembly)
         {
             TypeDefinition options = assembly.MainModule.Types.FirstOrDefault(t=>t.Name=="OptionsMenuScript");
@@ -73,9 +73,6 @@ namespace Goose.Monsterpatch.ExpRatesPatcher
             return 1;
         }
         private static MethodReference ImportRuntimeMethod(ModuleDefinition module,string name) => module.ImportReference(typeof(ExpRatesPatcher).GetMethod(name,BindingFlags.Static|BindingFlags.Public));
-        public static float RuntimeGetEffectiveBaseExpScale() => _baseExpScale * RuntimeGetCurrentGlobalExpMultiplier();
-        public static float RuntimeGetWildBattleMultiplier() => _wildBattleMultiplier;
-        public static float RuntimeGetWizardBattleMultiplier() => _wizardBattleMultiplier;
         public static float RuntimeGetCurrentGlobalExpMultiplier() => ClampMultiplierToChoice(_globalExpMultiplier);
         public static void RuntimeEnsureExpRateRow(object menu)
         {
@@ -515,16 +512,13 @@ namespace Goose.Monsterpatch.ExpRatesPatcher
         private static void LoadConfig()
         {
             if(_initialized)return; _initialized=true; string path=GetConfigPath();
-            try { Directory.CreateDirectory(Path.GetDirectoryName(path)); if(!File.Exists(path)) WriteDefaultConfig(path); foreach(string raw in File.ReadAllLines(path)) { string line=raw.Trim(); if(line.Length==0||line.StartsWith("#")||line.StartsWith(";")||line.StartsWith("[")||!line.Contains("="))continue; string[] parts=line.Split(new[]{'='},2); string key=parts[0].Trim(); string value=parts[1].Trim(); if(key.Equals("GlobalExpMultiplier",StringComparison.OrdinalIgnoreCase)||key.Equals("DefaultGlobalExpMultiplier",StringComparison.OrdinalIgnoreCase)) TryParseFloat(value,ref _globalExpMultiplier); else if(key.Equals("BaseExpScale",StringComparison.OrdinalIgnoreCase)) TryParseFloat(value,ref _baseExpScale); else if(key.Equals("WildBattleMultiplier",StringComparison.OrdinalIgnoreCase)) TryParseFloat(value,ref _wildBattleMultiplier); else if(key.Equals("WizardBattleMultiplier",StringComparison.OrdinalIgnoreCase)) TryParseFloat(value,ref _wizardBattleMultiplier); else if(key.Equals("PatchOptionsMenu",StringComparison.OrdinalIgnoreCase)) bool.TryParse(value,out _patchOptionsMenu); else if(key.Equals("DebugLogging",StringComparison.OrdinalIgnoreCase)) bool.TryParse(value,out _debugLogging); } } catch(Exception ex) { Console.WriteLine("[Monsterpatch EXP Rates Patcher] Failed to load config: "+ex.Message); } _globalExpMultiplier=ClampMultiplierToChoice(_globalExpMultiplier);
+            try { Directory.CreateDirectory(Path.GetDirectoryName(path)); if(!File.Exists(path)) WriteDefaultConfig(path); foreach(string raw in File.ReadAllLines(path)) { string line=raw.Trim(); if(line.Length==0||line.StartsWith("#")||line.StartsWith(";")||line.StartsWith("[")||!line.Contains("="))continue; string[] parts=line.Split(new[]{'='},2); string key=parts[0].Trim(); string value=parts[1].Trim(); if(key.Equals("GlobalExpMultiplier",StringComparison.OrdinalIgnoreCase)||key.Equals("DefaultGlobalExpMultiplier",StringComparison.OrdinalIgnoreCase)) TryParseFloat(value,ref _globalExpMultiplier); else if(key.Equals("PatchOptionsMenu",StringComparison.OrdinalIgnoreCase)) bool.TryParse(value,out _patchOptionsMenu); else if(key.Equals("DebugLogging",StringComparison.OrdinalIgnoreCase)) bool.TryParse(value,out _debugLogging); } } catch(Exception ex) { Console.WriteLine("[Monsterpatch EXP Rates Patcher] Failed to load config: "+ex.Message); } _globalExpMultiplier=ClampMultiplierToChoice(_globalExpMultiplier);
         }
         private static bool TryParseFloat(string s, ref float value) { if(float.TryParse(s,NumberStyles.Float,CultureInfo.InvariantCulture,out float f)) { value=f; return true; } return false; }
         private static string GetConfigPath()=>Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"BepInEx","config",ConfigFileName);
         private static void WriteDefaultConfig(string path)=>File.WriteAllText(path,$@"## Monsterpatch Extra Options
 ## New preloader-safe config. Default EXP rate is 1x.
 [EXP]
-BaseExpScale = {_baseExpScale.ToString(CultureInfo.InvariantCulture)}
-WildBattleMultiplier = {_wildBattleMultiplier.ToString(CultureInfo.InvariantCulture)}
-WizardBattleMultiplier = {_wizardBattleMultiplier.ToString(CultureInfo.InvariantCulture)}
 GlobalExpMultiplier = {_globalExpMultiplier.ToString(CultureInfo.InvariantCulture)}
 [Options Menu]
 PatchOptionsMenu = {_patchOptionsMenu}

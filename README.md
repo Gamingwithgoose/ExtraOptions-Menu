@@ -2,13 +2,14 @@
 
 Merged preloader patcher for Monsterpatch that combines the working Extra Options features into one DLL.
 
-Release: **v0.1.2**
+Release: **v0.1.3 (beta)**
+
+Catch To Box has been removed; native storage handling is untouched. This version targets the beta. Unsupported old shiny denominators fall back to 1/200; supported settings are preserved. Source-level compatibility checked against the beta dump; in-game verification pending.
 
 ## What this patcher does
 
 Monsterpatch Extra Options replaces the older separate option patchers with one preloader patcher:
 
-- Catch To Box behavior
 - Shiny Odds option row
 - EXP Rate option row
 - Options menu layout/reflow for the latest game update
@@ -56,40 +57,14 @@ There is no longer a **Send To** Options menu row or Box/Town toggle. The Send T
 Config setting:
 
 ```ini
-[Catch To Box]
-OnlyMoveWhenBoxHasSpace = true
-```
-
-### Shiny Odds
-
-Adds a Shiny Odds row to the Options menu.
-
-Available choices:
-
-```text
-1/1000
-1/500
-1/250
-1/100
-1/50
-1/25
-```
-
-The shiny fix from the standalone shiny odds patcher was merged into this build. The patched shiny formula reads the Extra Options runtime value, so changing the Options menu row updates new shiny rolls.
-
-Existing mons do not become shiny retroactively. Test shiny odds with newly generated mons.
-
-Config setting:
-
-```ini
 [Shiny Odds]
-OddsDenominator = 1000
+OddsDenominator = 200
 ```
 
 Valid values:
 
 ```text
-1000, 500, 250, 100, 50, 25
+200, 150, 100, 50, 25
 ```
 
 ### EXP Rate
@@ -111,18 +86,15 @@ Config settings:
 ```ini
 [EXP Rate]
 GlobalExpMultiplier = 1
-BaseExpScale = 0.3
-WildBattleMultiplier = 1
-WizardBattleMultiplier = 1.35
 ```
 
-Most players should only change `GlobalExpMultiplier` through the Options menu.
+The multiplier is applied immediately before the native EXP rounding call. At 1x the beta formula is unchanged.
 
 ### Options menu layout
 
 The Options menu layout is updated for the latest game update. It reflows the vanilla rows and the added Shiny Odds / EXP Rate rows so the menu stays aligned with the new Dim Light and Battle Cam Move options.
 
-Default v0.1.2 layout settings:
+Default v0.1.3 layout settings:
 
 ```ini
 [Options Menu Layout]
@@ -163,30 +135,22 @@ BepInEx\config\goose.monsterpatch.extraoptions.cfg
 ```ini
 ## Monsterpatch Extra Options
 ## Plugin GUID: goose.monsterpatch.extraoptions
-## This single preloader patcher replaces the separate Catch To Box, Shiny Odds, EXP Rates, and Options Layout patchers.
+## This single preloader patcher replaces the separate Shiny Odds, EXP Rates, and Options Layout patchers.
 ## Put Monsterpatch_ExtraOptions_Patcher.dll in BepInEx\patchers.
 
 [General]
 
-## Enables the custom Options menu rows for Catch To, Shiny Odds, and EXP Rate.
+## Enables the custom Options menu rows for Shiny Odds and EXP Rate.
 # Setting type: Boolean
 # Default value: true
 PatchOptionsMenu = true
 
-[Catch To Box]
-
-## Newly captured / hatched mons are always moved to the Box when possible. There is no Options menu toggle.
-## If true, the mon only moves to the box when box space is available.
-# Setting type: Boolean
-# Default value: true
-OnlyMoveWhenBoxHasSpace = true
-
 [Shiny Odds]
 
-## Shiny odds denominator. Valid values: 1000, 500, 250, 100, 50, 25
+## Shiny odds denominator. Valid values: 200, 150, 100, 50, 25
 # Setting type: Int32
-# Default value: 1000
-OddsDenominator = 1000
+# Default value: 200
+OddsDenominator = 200
 
 [EXP Rate]
 
@@ -194,21 +158,6 @@ OddsDenominator = 1000
 # Setting type: Single
 # Default value: 1
 GlobalExpMultiplier = 1
-
-## Internal Monsterpatch base EXP scale. Usually leave at 0.3.
-# Setting type: Single
-# Default value: 0.3
-BaseExpScale = 0.3
-
-## Wild battle EXP multiplier before the global multiplier. Usually leave at 1.
-# Setting type: Single
-# Default value: 1
-WildBattleMultiplier = 1
-
-## Wizard/trainer battle EXP multiplier before the global multiplier. Usually leave at 1.35.
-# Setting type: Single
-# Default value: 1.35
-WizardBattleMultiplier = 1.35
 
 [Options Menu Layout]
 
@@ -291,7 +240,7 @@ BepInEx\patchers\Monsterpatch_ExtraOptions_Patcher.dll
 
 ### The Options menu still looks wrong
 
-Delete the old config once so the v0.1.2 defaults regenerate:
+Delete the old config once so the v0.1.3 defaults regenerate:
 
 ```text
 BepInEx\config\goose.monsterpatch.extraoptions.cfg

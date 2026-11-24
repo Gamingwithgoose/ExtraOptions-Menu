@@ -13,7 +13,7 @@ namespace Goose.Monsterpatch.OptionsMenuLayoutPatcher
     public static class OptionsMenuLayoutPatcher
     {
         private const string PatcherName="Monsterpatch Extra Options - Layout";
-        private const string PatcherVersion="v0.1.2";
+        private const string PatcherVersion="v0.1.3";
         private const string ConfigFileName="goose.monsterpatch.extraoptions.cfg";
         private static bool _enabled=true;
         private static bool _autoCenter=true;
@@ -420,7 +420,7 @@ namespace Goose.Monsterpatch.OptionsMenuLayoutPatcher
         private static bool TryParseFloat(string s,ref float value){if(float.TryParse(s,NumberStyles.Float,CultureInfo.InvariantCulture,out float f)){value=f;return true;}return false;}
         private static string GetConfigPath()=>Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"BepInEx","config",ConfigFileName);
         private static void WriteDefaultConfig(string path)=>File.WriteAllText(path,$@"## Monsterpatch Extra Options
-## New preloader-safe config. Defaults match v0.1.2 release layout for the latest Options menu.
+## New preloader-safe config. Defaults match v0.1.3 release layout for the latest Options menu.
 [Layout]
 Enabled = {_enabled}
 AutoCenter = {_autoCenter}
